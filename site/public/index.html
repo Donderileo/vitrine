@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Vitrine · achadinhos de casa</title>
+<meta name="description" content="Achadinhos de casa e decoração. Viu no vídeo? Digite o número do produto.">
+<meta property="og:title" content="Vitrine · achadinhos de casa">
+<meta property="og:image" content="/avatar.png">
+<meta name="theme-color" content="#120d09">
+<link rel="icon" href="/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#120d09;--bg2:#1c140d;--card:#1f1710;--line:#3a2a1a;--ink:#f6eee2;--muted:#b8a890;--g1:#FFF1C9;--g2:#F2C766;--g3:#C8902F;--accent:#FE2C55}
+*{box-sizing:border-box}
+html,body{margin:0;background:radial-gradient(120% 60% at 50% 0%,#2c1f13 0%,var(--bg) 60%) fixed,var(--bg);color:var(--ink);font:15px/1.45 Poppins,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:560px;margin:0 auto;padding:28px 16px 64px}
+header{text-align:center}
+.avatar{width:96px;height:96px;border-radius:50%;box-shadow:0 0 0 3px var(--g2),0 10px 30px rgba(0,0,0,.5)}
+h1{margin:14px 0 2px;font-size:26px;font-weight:700;letter-spacing:-.02em;background:linear-gradient(180deg,var(--g1),var(--g2) 55%,var(--g3));-webkit-background-clip:text;background-clip:text;color:transparent}
+.bio{color:var(--muted);margin:0 auto;max-width:340px;font-size:14px}
+.search{margin:22px 0 18px;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px}
+.search label{display:block;font-size:13px;color:var(--muted);margin-bottom:8px;text-align:center}
+.search .row{display:flex;gap:8px}
+.search input{flex:1;min-width:0;font:600 22px Poppins,sans-serif;text-align:center;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);outline:none}
+.search input:focus{border-color:var(--g2)}
+.search button{font:600 15px Poppins,sans-serif;border:0;border-radius:12px;padding:0 18px;background:linear-gradient(180deg,var(--g1),var(--g2));color:#2a1a08;cursor:pointer}
+.status{font-size:13px;color:var(--muted);text-align:center;min-height:20px;margin:-6px 0 10px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;text-decoration:none;color:inherit;transition:transform .15s,border-color .15s}
+.card:active{transform:scale(.98)}
+.card.hit{border-color:var(--g2);box-shadow:0 0 0 2px var(--g2)}
+.card .img{position:relative;aspect-ratio:3/4;background:#000}
+.card img{width:100%;height:100%;object-fit:cover;display:block}
+.num{position:absolute;left:8px;top:8px;font:700 14px Poppins,sans-serif;color:#2a1a08;background:linear-gradient(180deg,var(--g1),var(--g2));padding:3px 10px;border-radius:999px}
+.card .body{padding:10px 12px 12px;display:flex;flex-direction:column;gap:6px;flex:1}
+.title{font-weight:600;font-size:14px;line-height:1.3}
+.price{color:var(--g2);font-weight:700;font-size:15px}
+.cta{margin-top:auto;text-align:center;font-weight:600;font-size:14px;background:var(--accent);color:#fff;border-radius:10px;padding:9px}
+.cta.off{background:var(--line);color:var(--muted)}
+.empty{text-align:center;color:var(--muted);padding:30px 0}
+footer{text-align:center;color:var(--muted);font-size:12px;margin-top:28px}
+@media (min-width:520px){.grid{grid-template-columns:1fr 1fr 1fr}.wrap{max-width:720px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <img class="avatar" src="/avatar.png" alt="Vitrine">
+    <h1>Vitrine</h1>
+    <p class="bio">Sua casa mais bonita gastando pouco. Achadinhos de decor todo dia.</p>
+  </header>
+
+  <form class="search" id="f">
+    <label for="q">Viu no vídeo? Digite o número do produto</label>
+    <div class="row">
+      <input id="q" inputmode="numeric" pattern="[0-9]*" placeholder="#" autocomplete="off">
+      <button>Ver</button>
+    </div>
+  </form>
+  <div class="status" id="st"></div>
+
+  <div class="grid" id="g"></div>
+  <footer>Links de afiliado: posso receber comissão pelas compras, sem custo extra pra você.</footer>
+</div>
+<script>
+const g = document.getElementById('g'), q = document.getElementById('q'), st = document.getElementById('st');
+let items = [];
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function render(highlight) {
+  if (!items.length) { g.innerHTML = '<div class="empty" style="grid-column:1/-1">Em breve os primeiros achadinhos ✨</div>'; return; }
+  g.innerHTML = items.map(p => `
+    <a class="card${String(p.num) === highlight ? ' hit' : ''}" id="p${p.num}" href="${p.link ? '/p/' + p.num : '#'}" ${p.link ? '' : 'aria-disabled="true"'}>
+      <div class="img"><img src="${esc(p.img)}" alt="${esc(p.title)}" loading="lazy"><span class="num">#${p.num}</span></div>
+      <div class="body">
+        <div class="title">${esc(p.title)}</div>
+        ${p.price ? `<div class="price">${esc(p.price)}</div>` : ''}
+        <div class="cta${p.link ? '' : ' off'}">${p.link ? 'Ver no TikTok Shop' : 'Link em breve'}</div>
+      </div>
+    </a>`).join('');
+}
+
+function go(n) {
+  n = String(n).replace(/\D/g, '');
+  if (!n) { st.textContent = ''; render(); return; }
+  const p = items.find(x => String(x.num) === n);
+  history.replaceState(null, '', '?p=' + n);
+  if (!p) { st.textContent = `Não achei o produto #${n}. Confere o número no fim do vídeo.`; render(); return; }
+  st.textContent = '';
+  render(n);
+  document.getElementById('p' + n)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+document.getElementById('f').addEventListener('submit', e => { e.preventDefault(); go(q.value); });
+
+fetch('/products.json', { cache: 'no-store' }).then(r => r.json()).then(list => {
+  items = list.sort((a, b) => b.num - a.num);
+  const p = new URLSearchParams(location.search).get('p');
+  if (p) { q.value = p; go(p); } else render();
+}).catch(() => { st.textContent = 'Não consegui carregar os produtos.'; });
+</script>
+</body>
+</html>

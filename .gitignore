@@ -1,0 +1,23 @@
+# secrets — never commit
+.env
+.env.*
+!.env.example
+
+# dependencies / build
+node_modules
+.next
+*.tsbuildinfo
+next-env.d.ts
+.wrangler
+
+# local data: database, projects, renders, settings
+data
+out
+
+# personal media of the @vitrine.decasa profile
+exemplos
+perfil
+posts
+videos
+
+.DS_Store

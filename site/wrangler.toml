@@ -1,0 +1,10 @@
+# Cloudflare Pages — página de links da Vitrine
+name = "vitrine-links"
+pages_build_output_dir = "public"
+compatibility_date = "2026-10-01"
+
+# Opcional: contador de cliques por produto (KV grátis).
+# 1) npx wrangler kv namespace create CLICKS   2) cole o id abaixo e descomente.
+# [[kv_namespaces]]
+# binding = "CLICKS"
+# id = "COLE_O_ID_AQUI"
