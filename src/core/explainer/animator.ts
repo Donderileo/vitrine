@@ -20,15 +20,17 @@ const ASSETS = path.join(process.cwd(), "assets/explainer");
 const read = (f: string) => fs.readFileSync(path.join(ASSETS, f), "utf8");
 
 const RULES = `REGRAS (Vitrine):
-- Canvas 1080x1920 (9:16), estilo flat. O shell já pinta o fundo (H.B.bg), o nome da série no topo e um flash na troca de cena — NÃO repita isso.
-- LAYOUT: títulos/números só em H.Z.top; a ilustração em H.Z.mid, GRANDE (use quase toda a largura e altura da zona); NADA em H.Z.caption (y ≥ 1330): ali entram as legendas da narração. Centralize em H.Z.cx (o TikTok cobre a borda direita).
-- PRIMEIRO QUADRO (cena 0): no instante t = 0 a tela já precisa estar CHEIA e legível — título do gancho grande e visível SEM animação de entrada (desenhe com H.txt, não H.stamp), ilustração grande, colorida e contrastante ocupando a zona do meio, e algo já se mexendo. Nada de tela escura ou vazia no começo: é o quadro que decide se a pessoa fica.
-- TEMPO: t é o tempo absoluto do vídeo; a cena vai de s.t0 a s.t1. Todo acontecimento ligado à fala usa H.cue(i, 'palavra') com uma palavra EXATA da narração da cena i.
-- Uma ideia visual por cena, MOSTRADA acontecendo (antes → depois, crescer, medir, comparar, setas), não só texto. Formas simples e limpas.
-- Função pura de t: nada de Math.random/Date.now (use H.U.hash), sem estado entre frames, sem imagens externas.
-- Texto ≥ 34px, curto (use o título da cena), cores da marca (H.B.gold, H.B.ink) e do tema (H.PAL).
-- MOVIMENTO CONSTANTE: nada parado por mais de ~1 s. Elementos ENTRAM animados (deslizar, crescer, linha se desenhando, contador subindo), cada palavra-chave da narração dispara um acontecimento (H.cue), e enquanto espera algo respira (balanço, pulsar, brilho). Pelo menos 2–3 acontecimentos por cena. O shell já faz um leve zoom de câmera em cada cena.
-- O @ do perfil (H.handle) já aparece no topo pelo shell; na cena final, destaque H.handle junto do CTA. Nunca escreva outro @.
+- Canvas 1080x1920 (9:16), estilo flat. O shell já pinta o fundo da marca (brilho + grade em movimento), o nome da série no topo e um flash curto na troca de cena — NÃO repita isso.
+- LAYOUT: títulos/números/palavras-chave em H.Z.top; a ilustração em H.Z.mid, GRANDE; NADA em H.Z.caption (y ≥ 1330): ali entram as legendas. Centralize em H.Z.cx (o TikTok cobre a borda direita). Cards até 900 px de largura. Texto ≥ 34 px.
+- ROTEIRO DE MOTION: cada cena traz "beats" (palavra → componente → texto). Implemente CADA beat com o componente H.M correspondente, entrando exatamente em H.cue(i, 'palavra'). "desenho" = o movimento acontece na sua ilustração (crescer, mover, pintar) nessa palavra. Pode acrescentar 1 detalhe se a cena ficar parada, nunca tirar beats.
+- USE H.M PARA TODO TEXTO E GRÁFICO ANIMADO (título, palavra-chave, número, régua, lista, comparação, seta, círculo…): eles já têm a entrada/saída certas. Desenhe à mão só a ilustração do tema (cômodo, móveis, objetos) no KIT, e para animá-la use H.M.enter / H.M.life / H.M.draw.
+- TIMING: entra na palavra que ilustra (0–0,15 s antes); itens de um grupo com ~0,09 s entre si; no máximo 2 elementos principais ao mesmo tempo (ex.: palavra-chave no topo + ilustração no meio); quando um novo elemento ocupa o mesmo lugar, dê "out" ao anterior.
+- NUNCA TELA VAZIA ESPERANDO A PALAVRA: em s.t0 (+0,1 s) a zona do meio já tem a ilustração ou o componente principal entrando; as palavras da narração disparam os DETALHES (marcas, números, setas, destaques). A checagem automática reprova cena com o meio vazio no começo.
+- MOVIMENTO CONSTANTE: nada parado por mais de ~1 s; enquanto espera algo respira (H.M.breathe, balanço leve). Alterne lados e tipos de componente entre cenas.
+- PRIMEIRO QUADRO (cena 0): em t = 0 a tela já está CHEIA: título do gancho com H.M.title({at: 0}) e ilustração grande e colorida já visível. Nada de tela vazia.
+- ÚLTIMA CENA: H.M.cta({kind, text}) com a CHAMADA do roteiro (kind: salvar | comentar | compartilhar | seguir; já mostra o ícone e o @) + a ilustração final pequena.
+- TEMPO: t é absoluto; a cena vai de s.t0 a s.t1. Função pura de t: nada de Math.random/Date.now (use H.U.hash), sem estado entre quadros, sem imagens externas.
+- Cores: marca (H.B.gold, H.B.ink), tema (H.PAL) e objetos fixos (H.C['nome']). Uma cor de destaque por cena.
 - Código ENXUTO: sem comentários longos, sem listas enormes de coordenadas, sem repetir o que está no kit.`;
 
 const SYSTEM = () => [{
@@ -37,6 +39,8 @@ const SYSTEM = () => [{
 
 API DO MOTOR (G, Data, U):
 ${read("engine-api.md")}
+
+${read("motion-api.md")}
 
 ${RULES}
 ${styleBrief() ? "\n" + styleBrief() + "\n" : ""}
@@ -55,7 +59,7 @@ function overview(plan: TExplainerPlan, narr: Narr) {
     return `CENA ${i} [${sc.t0.toFixed(2)}s → ${sc.t1.toFixed(2)}s] título: "${s.onScreen}"
   narração: "${s.narration}"
   palavras: ${ws}
-  visual: ${s.visual}`;
+  visual: ${s.visual}${s.beats?.length ? `\n  beats: ${s.beats.map((b) => `"${b.word}" → ${b.component}${b.text ? ` "${b.text}"` : ""}`).join(" · ")}` : ""}`;
   }).join("\n");
 }
 
@@ -73,7 +77,7 @@ export function assemble(kit: string, scenes: string[]) {
   const { clamp, lerp, ease } = U;
   const Z = S.ZONES, B = S.BRAND, F = 'Poppins';
   const H = {
-    U, G, Data, W: G.W, H: G.H, clamp, lerp, ease, Z, B, PAL: S.PALETTE, C: S.OBJECTS || {}, F, cue: S.cue, handle: S.HANDLE || '',
+    U, G, Data, W: G.W, H: G.H, clamp, lerp, ease, Z, B, PAL: S.PALETTE, C: S.OBJECTS || {}, M: globalThis.M, F, cue: S.cue, handle: S.HANDLE || '',
     R: (ctx, x, y, w, h, r, fill) => G.rrect(ctx, x, y, w, h, r, { fill, lw: 0 }),
     E: (ctx, cx, cy, rx, ry, fill) => G.ellipse(ctx, cx, cy, rx, ry, { fill, lw: 0 }),
     txt: (ctx, s, x, y, o) => G.text(ctx, s, x, y, { fam: F, weight: 700, color: B.ink, ...o }),
@@ -100,7 +104,16 @@ ${scenes.map((c, i) => `    /* cena ${i} */ (${c}),`).join("\n")}
   Studio.film({
     async init() { await Studio.loadFont(F, 'assets/Poppins-Bold.ttf', 700); await Studio.loadFont(F, 'assets/Poppins-Medium.ttf', 500); },
     draw(ctx, t) {
+      // brand background: radial glow + a fine grid drifting slowly (the frame is never static)
       ctx.fillStyle = B.bg; ctx.fillRect(0, 0, G.W, G.H);
+      const glow = ctx.createRadialGradient(Z.cx, G.H * 0.38, 40, Z.cx, G.H * 0.38, G.H * 0.62);
+      glow.addColorStop(0, G.tint(B.bg2 || B.bg, 0.12)); glow.addColorStop(1, B.bg);
+      ctx.fillStyle = glow; ctx.fillRect(0, 0, G.W, G.H);
+      ctx.save(); ctx.strokeStyle = B.gold; ctx.globalAlpha = 0.05; ctx.lineWidth = 2; ctx.beginPath();
+      const gs = 90, off = (t * 12) % gs;
+      for (let x = -gs + off; x < G.W + gs; x += gs) { ctx.moveTo(x, 0); ctx.lineTo(x, G.H); }
+      for (let y = -gs + off; y < G.H + gs; y += gs) { ctx.moveTo(0, y); ctx.lineTo(G.W, y); }
+      ctx.stroke(); ctx.restore();
       const i = sceneAt(t), s = S.SCENES[i];
       // gentle camera: slow push-in over the scene + a short settle when it starts (keeps every shot alive)
       const p = clamp((t - s.t0) / Math.max(0.5, s.t1 - s.t0)), enter = i === 0 ? 0 : 1 - ease.outCubic(clamp((t - s.t0) / 0.35));
@@ -109,10 +122,11 @@ ${scenes.map((c, i) => `    /* cena ${i} */ (${c}),`).join("\n")}
       catch (e) { throw new Error('cena ' + i + ': ' + (e && e.message)); }
       const tag = [S.series ? S.series.toUpperCase() : '', H.handle].filter(Boolean).join('  ·  ');
       if (tag) H.txt(ctx, tag, Z.top.x, Z.top.y + 30, { size: 30, color: B.gold, weight: 500 });
-      const fl = i > 0 ? 0.45 * Math.exp(-(t - s.t0) * 12) : 0;
+      const fl = i > 0 ? 0.28 * Math.exp(-(t - s.t0) * 12) : 0;
       if (fl > 0.01) { ctx.fillStyle = 'rgba(255,248,232,' + fl + ')'; ctx.fillRect(0, 0, G.W, G.H); }
     },
     post: { paper: 0.12, vignette: 0.3, grain: 0.04 },
+    fadeOut: 0.5, // the end card must stay readable
   });
 })();
 `;
@@ -146,7 +160,7 @@ export async function authorFilm(ctx: Ctx, dir: string, plan: TExplainerPlan, na
   const rawDir = path.join(dir, "claude");
   fs.mkdirSync(rawDir, { recursive: true });
   const system: any = SYSTEM();
-  const head = `FILME: "${plan.title}" · série "${plan.series}" · ${narr.duration.toFixed(1)}s · paleta do tema: ${plan.palette.join(", ") || "livre"}\n\nTODAS AS CENAS (para manter continuidade):\n${overview(plan, narr)}`;
+  const head = `FILME: "${plan.title}" · série "${plan.series}" · ${narr.duration.toFixed(1)}s · paleta do tema: ${plan.palette.join(", ") || "livre"} · CHAMADA FINAL: ${plan.cta?.type ?? "salvar"} "${plan.cta?.text ?? "SALVA PRA USAR DEPOIS"}"\n\nTODAS AS CENAS (para manter continuidade):\n${overview(plan, narr)}`;
 
   async function ask(label: string, user: string, maxTokens: number) {
     const t0 = Date.now();
@@ -178,7 +192,7 @@ export async function authorFilm(ctx: Ctx, dir: string, plan: TExplainerPlan, na
   const sfx: Record<number, any[]> = {};
   async function writeScene(i: number, fix = "") {
     for (let a = 0; a < 2; a++) {
-      const r = await ask(`cena ${i}`, `${head}\n\nKIT JÁ ESCRITO (use K.*):\n\`\`\`js\n${kit}\n\`\`\`\n\nAgora escreva SÓ a CENA ${i}${i === 0 ? " (gancho: precisa prender nos 2 primeiros segundos)" : i === plan.scenes.length - 1 ? " (final: recap + CTA)" : ""}. Máximo ~90 linhas.${fix}\n\nResponda com:\n1) um bloco \`\`\`json de efeitos sonoros desta cena: [{"word":"palavra","kind":"chime"},{"at":0,"kind":"whoosh"}] (kind: pop | whoosh | thud | chime; 1–3 itens);\n2) um bloco \`\`\`js contendo apenas: function scene(ctx, t, s, H, K) { ... }`, 6000);
+      const r = await ask(`cena ${i}`, `${head}\n\nKIT JÁ ESCRITO (use K.*):\n\`\`\`js\n${kit}\n\`\`\`\n\nAgora escreva SÓ a CENA ${i}${i === 0 ? " (gancho: precisa prender nos 2 primeiros segundos)" : i === plan.scenes.length - 1 ? " (final: recap + a CHAMADA FINAL do roteiro com H.M.cta)" : ""}. Máximo ~90 linhas.${fix}\n\nResponda com:\n1) um bloco \`\`\`json de efeitos sonoros desta cena: [{"word":"palavra","kind":"chime"},{"at":0,"kind":"whoosh"}] (kind: pop | whoosh | swoosh | thud | chime | tick | ding; 0–2 itens extras — os beats já têm som);\n2) um bloco \`\`\`js contendo apenas: function scene(ctx, t, s, H, K) { ... }`, 6000);
       const code = !r.cut && block(r.text, "js");
       const err = code ? checkSyntax(code, `cena ${i}`) : "sem bloco js";
       if (code && !err) {
@@ -199,10 +213,10 @@ export async function authorFilm(ctx: Ctx, dir: string, plan: TExplainerPlan, na
   const full = await ask("filme", `${head}
 
 Escreva o filme INTEIRO no formato do exemplo. Responda só com estes blocos, nesta ordem:
-1) um bloco \`\`\`json de efeitos sonoros do filme todo: [{"scene":0,"word":"palavra","kind":"chime"},{"scene":3,"at":0,"kind":"whoosh"}] (kind: pop | whoosh | thud | chime; 5–15 itens);
+1) um bloco \`\`\`json de efeitos sonoros do filme todo: [{"scene":0,"word":"palavra","kind":"chime"},{"scene":3,"at":0,"kind":"whoosh"}] (kind: pop | whoosh | swoosh | thud | chime | tick | ding). Os beats JÁ ganham som automático; aqui só sons EXTRAS que a ilustração pedir (0–5 itens);
 2) um bloco \`\`\`js com o KIT: function kit(H) { ...; return { ... }; } (≤ 150 linhas; desenhos usados por mais de uma cena);
 3) para CADA cena, em ordem, um bloco \`\`\`js começando com a linha "// CENA i" seguida de function scene(ctx, t, s, H, K) { ... } (≤ 90 linhas cada).
-Cena 0 é o gancho (prender nos 2 primeiros segundos); a última é recap + CTA. Código enxuto.`, 20000);
+Cena 0 é o gancho (prender nos 2 primeiros segundos); a última é recap + a CHAMADA FINAL (H.M.cta com o kind e o texto do roteiro). Código enxuto.`, 20000);
   const blocks = [...full.text.matchAll(/```(?:js|javascript)\n([\s\S]*?)```/g)].map((m) => m[1].trim());
   const kitCode = blocks.find((b) => /function kit\s*\(/.test(b));
   if (kitCode && !checkSyntax(kitCode, "kit")) kit = kitCode;
@@ -220,6 +234,16 @@ Cena 0 é o gancho (prender nos 2 primeiros segundos); a última é recap + CTA.
   // only scenes that did not come back usable get their own (small) call
   const missing = scenes.map((c, i) => (/\{\s*\}$/.test(c) ? i : -1)).filter((i) => i >= 0);
   if (missing.length) { ctx.log(`cena(s) ${missing.join(", ")} faltando — pedindo separadamente`); await pool(missing, (i) => writeScene(i)); }
+
+  // every motion beat gets its sound (the manual: each entrance has a discreet SFX); Claude's extra cues are kept
+  plan.scenes.forEach((sc, i) => {
+    const list = (sfx[i] ??= []);
+    for (const b of sc.beats ?? []) {
+      const kind = BEAT_SFX[b.component] ?? "pop";
+      if (!list.some((x: any) => x.word && norm(String(x.word)) === norm(b.word))) list.push({ word: b.word, kind });
+    }
+    if (i > 0 && !list.some((x: any) => x.at === 0)) list.push({ at: 0, kind: "whoosh" });
+  });
 
   // ---------- assemble + review, fix only broken scenes ----------
   let issues: string[] = [];
@@ -245,6 +269,10 @@ Cena 0 é o gancho (prender nos 2 primeiros segundos); a última é recap + CTA.
   return issues;
 }
 
+const BEAT_SFX: Record<string, string> = {
+  keyword: "pop", title: "pop", counter: "tick", meter: "whoosh", ruler: "tick", checklist: "ding", compare: "whoosh", strike: "thud",
+  question: "pop", arrow: "whoosh", circle: "whoosh", underline: "whoosh", stars: "chime", price: "tick", ring: "tick", wipe: "swoosh", cta: "thud", desenho: "pop",
+};
 const norm = (x: string) => x.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9%]/g, "");
 /** Resolve SFX cues (scene + word/offset) to absolute times; the raw list is kept so a new narration can re-time them. */
 export function writeSfx(dir: string, list: any[], narr: Narr) {

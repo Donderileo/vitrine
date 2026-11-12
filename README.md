@@ -66,6 +66,20 @@ Em **/settings** dá pra mudar, sem mexer no `.env`:
 
 Fica salvo em `data/settings.json` (fora do git) e vale a partir do próximo projeto. As chaves de API continuam só no `.env`; a página só mostra se estão configuradas.
 
+## Motion graphics (biblioteca H.M)
+
+Os vídeos explicativos seguem o método do manual de edição da Zibbo, adaptado para animação sem rosto:
+
+- **Roteiro de motion:** o roteiro sai com "beats" por cena (palavra falada → componente → texto). Dá para editar na tela de revisão antes de pagar a animação.
+- **Biblioteca de componentes** em `assets/explainer/motion.js` (documentada em `motion-api.md`): título, palavra-chave, contador, barra %, régua de medida, checklist, antes × depois, riscado, "?", seta, círculo, estrelas, anel, preço, card, troca de assunto e cartela final. O timing já vem embutido (entrada 0,4 s, saída 0,25 s, escalonamento 0,09 s). O Claude só desenha à mão a ilustração do tema.
+- **Som automático:** cada beat ganha um efeito sonoro (pop, tick, ding, whoosh…).
+- **Checagem:** além de erro de código e layout, reprova cena com o meio da tela vazio no começo.
+- **Configurações:** nível de motion (intenso / moderado / leve) e legenda on/off.
+
+## Subir pro GitHub
+
+`npm run git:sync` adiciona tudo, faz o commit e o push. Se o `.env` aparecer no commit, ele aborta.
+
 ## Página de links (link da bio)
 
 Página estática em `site/` (Cloudflare Pages, grátis e permite uso comercial). Cada projeto ganha um **número de produto**. O vídeo termina com "ou no link da bio · produto #12", e a página tem busca por número.

@@ -19,7 +19,7 @@ export type TExtras = z.infer<typeof Extras>;
 export type ExtrasState = TExtras & { cover: string; description: string };
 
 /** Claude writes the post text (one small call, ~US$0.005). Offline fallback builds it from the script. */
-export async function writeExtras(ctx: Ctx, brief: { kind: "ad" | "explainer"; title: string; series?: string; script: string }): Promise<TExtras> {
+export async function writeExtras(ctx: Ctx, brief: { kind: "ad" | "explainer"; title: string; series?: string; script: string; cta?: string }): Promise<TExtras> {
   const fallback: TExtras = {
     coverTitle: brief.title.split(/\s+/).slice(0, 5).join(" "),
     caption: `${brief.title}. Salva pra usar depois e segue ${config.brandHandle} pra mais.`,
@@ -33,7 +33,7 @@ ROTEIRO/NARRAÇÃO: ${brief.script}
 
 Escreva:
 - coverTitle: título da CAPA, 2–5 palavras fortes que geram curiosidade (pode ser pergunta). Sem emoji.
-- caption: legenda do post, 1–3 frases curtas, tom de criador de conteúdo, com 1 pergunta que puxe comentário, terminando com convite pra salvar/seguir. Pode ter 1–2 emojis. NÃO inclua hashtags aqui. ${brief.kind === "ad" ? "Mencione que o link está no carrinho/na bio." : ""}
+- caption: legenda do post, 1–3 frases curtas, tom de criador de conteúdo, com 1 pergunta que puxe comentário, terminando com ${brief.cta ? `a MESMA chamada do vídeo (${brief.cta})` : "convite pra salvar/seguir"}. Pode ter 1–2 emojis. NÃO inclua hashtags aqui. ${brief.kind === "ad" ? "Mencione que o link está no carrinho/na bio." : ""}
 - hashtags: 5–7 hashtags em português, misturando 2 amplas do nicho (ex.: #decoracao #casa) com 3–5 específicas do tema${brief.series ? " e 1 da série" : ""}. Sem #fyp/#foryou/#viral (não ajudam e poluem).
 
 Responda só JSON: {"coverTitle":"","caption":"","hashtags":["#..."]}`;

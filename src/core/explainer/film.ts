@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { chromium } from "playwright";
 import { config } from "../config";
 import { loadSettings } from "../settings";
@@ -27,6 +27,20 @@ export function scaffold(dir: string, plan: TExplainerPlan, narr: Narr, voiceWav
   fs.writeFileSync(path.join(dir, "score.js"), scoreJs(plan, narr));
   fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ name: path.basename(dir), private: true }));
   installCaptions(dir);
+  installMotion(dir);
+}
+
+export function removeCaptions(dir: string) {
+  const idx = path.join(dir, "index.html");
+  fs.writeFileSync(idx, fs.readFileSync(idx, "utf8").replace(/<script src="captions\.js"><\/script>\n?/, ""));
+}
+
+/** Motion library (H.M): copied into every film and loaded before film.js. */
+export function installMotion(dir: string) {
+  fs.copyFileSync(path.join(ASSETS, "motion.js"), path.join(dir, "motion.js"));
+  const idx = path.join(dir, "index.html");
+  const html = fs.readFileSync(idx, "utf8");
+  if (!html.includes("motion.js")) fs.writeFileSync(idx, html.replace('<script src="film.js"></script>', '<script src="motion.js"></script>\n<script src="film.js"></script>'));
 }
 
 /** score.js: the timeline the film reads (scenes timed to the narration, word cues, layout zones, brand). */
@@ -126,24 +140,44 @@ export function throttled(log: (m: string) => void, ms = 10_000) {
   return (m: string, force = false) => { const now = Date.now(); if (force || now - last >= ms) { last = now; log(m); } };
 }
 
+/** Average brightness (0–255) of the middle zone of a still; the empty brand background is ~40. */
+function midBrightness(png: string): number | null {
+  if (!fs.existsSync(png)) return null;
+  const r = spawnSync(config.ffmpeg, ["-v", "error", "-i", png, "-vf", "crop=iw*0.85:ih*0.38:iw*0.05:ih*0.3,format=gray,signalstats,metadata=print:key=lavfi.signalstats.YAVG:file=-", "-f", "null", "-"], { encoding: "utf8" });
+  const m = (r.stdout || "").match(/YAVG=([\d.]+)/);
+  return m ? Number(m[1]) : null;
+}
+
 /** Cheap automatic review: render one still per scene (catches crashes) + the engine's visual QA (layout/contrast). */
 export async function review(dir: string, narr: Narr, log: (m: string) => void = () => {}) {
   const issues: string[] = [];
   log(`checando a animação: 1 quadro de cada cena (${narr.scenes.length})…`);
   const times = narr.scenes.map((s) => ((s.t0 + s.t1) / 2).toFixed(2));
-  const st = await engine(dir, ["engine/render.js", "stills", ...times, "--draft"], 5 * 60_000);
+  // + one still right after each scene starts: the middle of the screen must never sit empty waiting for a word
+  const early = narr.scenes.map((s, i) => (i > 0 && s.t1 - s.t0 > 1 ? (s.t0 + 0.35).toFixed(2) : null));
+  const st = await engine(dir, ["engine/render.js", "stills", ...times, ...early.filter(Boolean) as string[], "--draft"], 5 * 60_000);
   for (const l of st.out.split("\n")) if (/EXCEPTION|Error|warning: frames must/.test(l)) issues.push(l.trim().slice(0, 400));
   if (st.code !== 0 && !issues.length) issues.push(st.out.slice(-600));
+  const empty: string[] = [];
+  if (!issues.length) early.forEach((t, i) => {
+    if (!t) return;
+    const png = path.join(dir, "out/stills", `t_${String(Number(t).toFixed(2)).padStart(6, "0")}.png`);
+    const y = midBrightness(png);
+    if (y !== null && y < 55) empty.push(`cena ${i}: a zona do meio fica VAZIA no começo da cena (${t}s). Algo precisa já estar na tela ou entrando em s.t0 (a ilustração ou o componente principal); as palavras só disparam os detalhes.`);
+  });
   if (!issues.length) {
     log("checando layout (texto fora da tela, sobreposição, contraste)…");
     const qa = await engine(dir, ["engine/render.js", "qa", ...times], 5 * 60_000);
     for (const l of qa.out.split("\n")) if (/^⚠/.test(l.trim()) && !/mid-transition/.test(l)) issues.push(l.trim());
   }
+  issues.push(...empty);
   return { issues, stills: times.map((t) => path.join(dir, "out/stills", `t_${String(Number(t).toFixed(2)).padStart(6, "0")}.png`)) };
 }
 
 // ---------- final render ----------
 export async function renderFilm(ctx: Ctx, dir: string) {
+  installMotion(dir); // latest motion library
+  if (loadSettings().captions) installCaptions(dir); else removeCaptions(dir); // Configurações → legenda on/off
   fs.copyFileSync(path.join(ASSETS, "song.js"), path.join(dir, "song.js")); // latest mix (e.g. no vinyl hiss) also for old projects
   ctx.log("gerando trilha e mixando a narração…");
   const song = await engine(dir, ["song.js"], 5 * 60_000);

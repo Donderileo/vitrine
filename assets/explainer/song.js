@@ -18,7 +18,7 @@ const MUSIC = process.env.EXPLAINER_MUSIC || 'lofi';
 const VOL = Number(process.env.EXPLAINER_MUSIC_VOLUME || '1');
 if (MUSIC !== 'none') Genre.play('lofi', { clock, from: 0, to: bars, chordAt: sc.chordAt, buses: { drums, bass, pad, keys }, gain: 0.8 });
 
-// SFX written by the film author (sfx.json: [{t, kind}]) — every visual hit can have a sound
+// SFX (sfx.json: [{t, kind}]) — one per motion beat + scene changes. kind: pop whoosh swoosh thud chime tick ding
 let sfx = [];
 try { sfx = JSON.parse(fs.readFileSync(path.join(__dirname, 'sfx.json'), 'utf8')); } catch { /* none */ }
 const NOTES = [72, 76, 79, 84, 88, 91];
@@ -27,6 +27,9 @@ sfx.forEach((s, i) => {
   if (s.kind === 'pop') fx.addMono(I.pop(1 + (i % 4) * 0.1), s.t, 0.3);
   else if (s.kind === 'whoosh') fx.addMono(I.noiseSweep(0.45, 400, 5000, { q: 0.9, pink: true }), Math.max(0, s.t - 0.4), 0.22);
   else if (s.kind === 'thud') fx.addMono(I.thud(80, 0.09), s.t, 0.5);
+  else if (s.kind === 'swoosh') fx.addMono(I.noiseSweep(0.7, 250, 3200, { q: 0.8, pink: true }), Math.max(0, s.t - 0.5), 0.26);
+  else if (s.kind === 'tick') fx.addMono(I.rim(1.4, i + 1), s.t, 0.16);
+  else if (s.kind === 'ding') { const x = I.bell(1568, 0.5); fx.addMono(x, s.t, 0.1); verb.addMono(x, s.t, 0.06); }
   else { const x = I.marimba(NOTES[i % NOTES.length], { thock: 0.1 }); keys.addMono(x, s.t, 0.35); verb.addMono(x, s.t, 0.2); } // chime
 });
 

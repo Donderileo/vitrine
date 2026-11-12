@@ -18,6 +18,10 @@ export type Settings = {
   elevenSimilarity: number;
   elevenStyle: number;
   music: "lofi" | "none";
+  /** how much motion: intenso = something new every phrase (2–4 s); moderado ≈ half; leve = only numbers/concepts */
+  motionLevel: "intenso" | "moderado" | "leve";
+  /** word-by-word captions in the caption zone */
+  captions: boolean;
   musicVolume: number;
   /** fixed colours for recurring objects: the animator must always draw "sofa" with this colour, etc. */
   objects: { name: string; color: string; note?: string }[];
@@ -42,6 +46,8 @@ export function defaults(): Settings {
     elevenStyle: Number(process.env.ELEVENLABS_STYLE || 0),
     music: (process.env.EXPLAINER_MUSIC as "lofi" | "none") || "lofi",
     musicVolume: Number(process.env.EXPLAINER_MUSIC_VOLUME || 1),
+    motionLevel: "intenso",
+    captions: true,
     objects: [
       { name: "sofá", color: "#7A8450", note: "3 lugares, braços retos" },
       { name: "parede", color: "#E9DFD0" },
@@ -75,6 +81,8 @@ export function clean(raw: any): Settings {
     elevenStyle: num(r.elevenStyle, 0, 1, d.elevenStyle),
     music: r.music === "none" ? "none" : r.music === "lofi" ? "lofi" : d.music,
     musicVolume: num(r.musicVolume, 0, 2, d.musicVolume),
+    motionLevel: ["intenso", "moderado", "leve"].includes(r.motionLevel) ? r.motionLevel : d.motionLevel,
+    captions: typeof r.captions === "boolean" ? r.captions : d.captions,
     objects: Array.isArray(r.objects)
       ? r.objects.slice(0, 30).map((o: any) => ({ name: str(o?.name, "", 40).trim(), color: hex(o?.color, "#888888"), note: str(o?.note, "", 120).trim() || undefined })).filter((o: any) => o.name)
       : d.objects,

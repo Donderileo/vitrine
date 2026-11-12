@@ -131,7 +131,7 @@ async function ensureExtras(ctx: Ctx, state: ProjectState, save: () => void, sta
   const ex = state.explainer;
   let brief, at = 1.5;
   if (ex?.plan && ex.narration) {
-    brief = { kind: "explainer" as const, title: ex.plan.title, series: ex.plan.series, script: ex.plan.scenes.map((s) => s.narration).join(" ") };
+    brief = { kind: "explainer" as const, title: ex.plan.title, series: ex.plan.series, script: ex.plan.scenes.map((s) => s.narration).join(" "), cta: ex.plan.cta ? `${ex.plan.cta.type}: "${ex.plan.cta.text}"` : undefined };
     // a moment between two scenes with no caption on screen, around the first third of the video
     const { words, scenes } = ex.narration;
     const cands: number[] = [];

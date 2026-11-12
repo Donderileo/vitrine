@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "setup": "npm install && npx playwright install chromium",
     "site:dev": "cd site && npx wrangler pages dev",
-    "site:deploy": "cd site && npx wrangler pages deploy"
+    "site:deploy": "cd site && npx wrangler pages deploy",
+    "git:sync": "git add -A && (git diff --cached --name-only | grep -E '(^|/)\\.env$' && echo 'ABORTADO: .env no commit' && git reset -q && exit 1 || true) && (git diff --cached --quiet && echo 'nada novo' || (git commit -qm \"atualiza Vitrine $(date +%Y-%m-%d)\" && git push && echo 'GitHub atualizado'))"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.8.0",

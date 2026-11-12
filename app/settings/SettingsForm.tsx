@@ -76,6 +76,13 @@ export default function SettingsForm() {
             <option value="none">Sem música</option>
           </select>
           {s.music !== "none" && slider("musicVolume", "Volume da música", 0, 2, 0.05, "1 = padrão")}
+          <label>Nível de motion</label>
+          <select value={s.motionLevel} onChange={(e) => set("motionLevel", e.target.value as Settings["motionLevel"])}>
+            <option value="intenso">Intenso: algo novo a cada frase (2–4 s)</option>
+            <option value="moderado">Moderado: em ~metade das frases</option>
+            <option value="leve">Leve: só números e conceitos</option>
+          </select>
+          <label className="check"><input type="checkbox" checked={s.captions} onChange={(e) => set("captions", e.target.checked)} /> Legenda palavra a palavra embaixo</label>
         </div>
 
         <div className="card">
