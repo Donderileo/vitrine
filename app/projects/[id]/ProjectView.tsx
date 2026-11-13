@@ -109,6 +109,10 @@ export default function ProjectView({ id }: { id: string }) {
         <div className="actions" style={{ marginTop: 12 }}>
           {d.status === "error" && <button onClick={() => post("retry", {})}>Retomar de onde parou</button>}
           {d.status === "done" && <button onClick={() => post("retry", { redo: "outputs" })}>{d.kind === "explainer" ? "Renderizar de novo (grátis)" : "Remontar vídeos (grátis)"}</button>}
+          {(d.status === "done" || d.status === "error") && d.kind === "explainer" && (
+            <button title="Mesmo roteiro e mesma voz; o Claude escreve a animação de novo com as regras atuais"
+              onClick={() => confirm("Refazer só a animação? Mantém roteiro e voz (custa ~US$0,10–0,20 de Claude).") && post("retry", { redo: "film" })}>Refazer animação (~US$0,15)</button>
+          )}
 
           {d.status === "done" && (d.storyboard || d.explainer?.plan) && <button onClick={() => post("edit", {})}>{d.kind === "explainer" ? "Editar narração" : "Editar textos"}</button>}
           {(d.status === "done" || d.status === "error") && (

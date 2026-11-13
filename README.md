@@ -136,3 +136,13 @@ data/                banco, uploads e vídeos gerados (fora do git)
 3. **Banco**: trocar SQLite por Postgres (as queries são simples).
 4. **Fila**: o worker já trava o projeto de forma atômica; dá para rodar vários workers. Em escala, usar BullMQ/Redis.
 5. **Cobrança**: créditos por vídeo com Stripe ou Mercado Pago, usando a tabela `costs` para definir a margem.
+
+## Carrossel (lista de produtos da Shopee)
+
+Aba **▦ Carrossel**: capa + 1 slide por produto (nome, preço, número) + slide final (links na bio e/ou "comente a palavra"), em 9:16 (TikTok) ou 4:5 (Instagram).
+
+1. **Produtos**: importe o CSV do afiliado Shopee ("Batch Product Links"). Traz nome, preço e o *Offer Link* (o seu link de afiliado, `s.shopee.com.br/…`).
+2. **Fotos**: suba uma foto por produto (ou várias de uma vez, atribuídas na ordem dos nomes dos arquivos). Com `FAL_KEY` no `.env`, o fundo é removido (~US$ 0,005 por foto) e o produto aparece na "casa padrão" da Vitrine (as cores de parede/piso/planta vêm de Configurações → Objetos). Sem a chave, a foto original vai num cartão.
+3. **Gerar**: "Escrever textos" (Claude: nomes curtos, capa, legenda) e "Gerar slides". Baixe o `.zip` com as imagens, a `legenda.txt` e os `links.txt`.
+
+Os preços aparecem como "a partir de" (promoções e cupons mudam o valor). A legenda leva `#publi` por padrão.

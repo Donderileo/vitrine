@@ -15,6 +15,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const num = (v: unknown, lo: number, hi: number) => (typeof v === "number" && isFinite(v) ? Math.min(hi, Math.max(lo, v)) : undefined);
     const voice = { ...p.state.explainer.voice, ...(num(body.speed, 0.7, 1.2) !== undefined ? { speed: num(body.speed, 0.7, 1.2) } : {}), ...(num(body.stability, 0, 1) !== undefined ? { stability: num(body.stability, 0, 1) } : {}) };
     projects.saveState(id, { ...p.state, outputs: {}, explainer: { ...p.state.explainer, voice, narration: undefined, video: undefined, output: undefined }, extras: undefined });
+  } else if (body.redo === "film" && p.state.explainer) { // same script + voice, Claude rewrites the animation
+    projects.saveState(id, { ...p.state, outputs: {}, explainer: { ...p.state.explainer, filmReady: false, freshFilm: true, video: undefined, output: undefined }, extras: undefined });
   } else if (body.redo === "outputs") {
     // Re-render only the final edits (free): useful after adding music or tweaking captions.
     const ex = p.state.explainer ? { ...p.state.explainer, video: undefined, output: undefined } : undefined;

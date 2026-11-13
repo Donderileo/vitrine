@@ -45,5 +45,6 @@ export type ExplainerState = {
   video?: string; // rendered + muxed, before captions
   output?: string; // final mp4
   captions?: "film";
+  freshFilm?: boolean; // "Refazer animação": ignore the saved animation and ask Claude again
   voice?: { speed?: number; stability?: number }; // per-project voice tweaks (redo narration) // captions drawn in-frame (older projects get re-rendered once)
 };

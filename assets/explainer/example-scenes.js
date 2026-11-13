@@ -13,12 +13,18 @@ function kit(H) {
   // room(ctx, x, y, scale, {rug: width, under: how far the rug goes under the sofa})
   function room(ctx, x, y, s, o) {
     ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
-    R(ctx, 0, 0, 900, 560, 24, H.C['parede'] || '#E9DFD0');
+    // frame: soft shadow + thin outline so the room never melts into a light background
+    ctx.save(); ctx.shadowColor = 'rgba(40,20,10,0.28)'; ctx.shadowBlur = 40; ctx.shadowOffsetY = 14; R(ctx, 0, 0, 900, 820, 24, H.B.bg2); ctx.restore();
+    ctx.save(); ctx.beginPath(); ctx.roundRect(0, 0, 900, 820, 24); ctx.clip();
+    R(ctx, 0, 0, 900, 560, 0, H.C['parede'] || '#E9DFD0');
     R(ctx, 0, 560, 900, 260, 0, H.C['piso'] || '#C9A97E');
     const sofa = H.C['sofá'] || '#7A8450';
+    R(ctx, 450 - o.rug / 2, 640 - o.under, o.rug, 90 + o.under, 12, H.PAL[0] || '#C4673F');
+    // the sofa goes AFTER the rug: its front feet stand on it
     R(ctx, 220, 400, 460, 130, 26, G.tint(sofa, -0.15)); R(ctx, 200, 500, 500, 100, 20, sofa);
     R(ctx, 215, 598, 20, 30, 4, '#5a3d26'); R(ctx, 665, 598, 20, 30, 4, '#5a3d26');
-    R(ctx, 450 - o.rug / 2, 640 - o.under, o.rug, 90 + o.under, 12, H.PAL[0] || '#C4673F');
+    ctx.restore();
+    ctx.lineWidth = 3; ctx.strokeStyle = H.light ? 'rgba(58,42,32,0.25)' : 'rgba(255,255,255,0.12)'; ctx.beginPath(); ctx.roundRect(0, 0, 900, 820, 24); ctx.stroke();
     ctx.restore();
   }
   // fit the room in the middle zone; also returns where the sofa's front feet are
@@ -44,22 +50,24 @@ function scene(ctx, t, s, H, K) {
 // beats: "erro" → keyword "O ERRO" · "tapete" → compare (the panels are already entering at s.t0; the word fires the ✗/✓)
 function scene(ctx, t, s, H, K) {
   const { Z, M } = H;
-  M.keyword(ctx, t, { text: 'O erro', at: H.cue(1, 'erro'), y: Z.top.y + 230, label: 'erro #1' });
+  M.keyword(ctx, t, { text: 'O erro', at: H.cue(1, 'erro'), y: Z.top.y + 250, label: 'erro #1' });
   const mini = (rug, under) => (c, b) => K.room(c, b.x, b.y + 60, b.w / 900, { rug, under });
   M.compare(ctx, t, { at: s.t0 + 0.05, markAt: H.cue(1, 'tapete'), y: Z.mid.y + 40, h: 640,
     left: { label: 'pequeno', ok: false, draw: mini(220, 0) },
     right: { label: 'no sofá', ok: true, draw: mini(640, 60) } });
 }
 
-// ---------- CENA 2: the rule — rug grows under the feet (desenho), number + ruler ----------
-// beats: "pés" → desenho · "vinte" → counter "20 cm" · "frente" → arrow
+// ---------- CENA 2: the rule — CLOSE on the sofa's front feet (new framing), rug slides under, number + ruler ----------
+// beats: "pés" → desenho · "vinte" → counter "20 cm"
 function scene(ctx, t, s, H, K) {
   const { Z, M, ease, prog } = H, f = K.fit(Z);
   const g = ease.outBack(prog(t, H.cue(2, 'pés'), H.cue(2, 'pés') + 0.6), 1.4);
-  K.room(ctx, f.x, f.y, f.s, { rug: 260 + 440 * g, under: 70 * g });
+  // the camera is already moving in at s.t0: this scene is a close-up, not the same wide shot as before
+  M.focus(ctx, t, { x: f.feet.x + 90 * f.s, y: f.feet.y - 30 * f.s, k: 1.7, at: s.t0, dur: 0.7 }, (c) => {
+    K.room(c, f.x, f.y, f.s, { rug: 260 + 440 * g, under: 70 * g });
+    M.ruler(c, t, { x1: f.feet.x - 30 * f.s, y1: f.feet.y - 60 * f.s, x2: f.feet.x - 30 * f.s, y2: f.feet.y + 12 * f.s, at: H.cue(2, 'vinte') + 0.2, lw: 4, size: 30, label: '20 cm' });
+  });
   M.counter(ctx, t, { to: 20, at: H.cue(2, 'vinte'), suffix: ' cm', label: 'pés em cima', y: Z.top.y + 220, size: 170 });
-  M.ruler(ctx, t, { x1: f.feet.x, y1: f.feet.y - 60 * f.s, x2: f.feet.x, y2: f.feet.y + 40, at: H.cue(2, 'vinte') + 0.2, label: '20 cm' });
-  M.arrow(ctx, t, { x1: Z.cx + 300, y1: Z.mid.y + 90, x2: f.x + 690 * f.s, y2: f.y + 610 * f.s, at: H.cue(2, 'frente'), bend: 0.25 });
 }
 
 // ---------- CENA 3: recap as a checklist, one item per spoken word ----------

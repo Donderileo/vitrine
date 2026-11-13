@@ -16,8 +16,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (!plan.success) return NextResponse.json({ error: "Roteiro inválido: " + plan.error.message }, { status: 400 });
     const prev = p.state.explainer ?? {};
     const same = JSON.stringify(prev.plan) === JSON.stringify(plan.data);
+    // Same number of scenes and same title = a wording tweak: keep the animation already written and only redo the
+    // voice (the pipeline re-times the old film to the new narration: no Claude cost). Otherwise rewrite everything.
+    const keepFilm = !same && prev.filmReady && prev.filmDir && prev.plan
+      && prev.plan.scenes.length === plan.data.scenes.length && prev.plan.title === plan.data.title;
     projects.approveScript(id, { ...p.state, outputs: same ? p.state.outputs : {},
-      explainer: same ? { ...prev, approved: true } : { plan: plan.data, approved: true } });
+      explainer: same ? { ...prev, approved: true }
+        : keepFilm ? { ...prev, plan: plan.data, approved: true, narration: undefined, video: undefined, output: undefined }
+        : { plan: plan.data, approved: true } });
     return NextResponse.json({ ok: true });
   }
   if (body.storyboard) {

@@ -21,6 +21,10 @@
   const Y = (S.ZONES && S.ZONES.caption ? S.ZONES.caption.y : 1270) + 95;
   const CX = S.ZONES ? S.ZONES.cx : 500;
   const GOLD = (S.BRAND && S.BRAND.gold) || '#F2C766';
+  // light themes: dark words with a soft halo in the background colour; dark themes: white with a black outline
+  const lum = (h) => { const n = parseInt(String(h || '#000000').slice(1), 16); return (0.299 * (n >> 16 & 255) + 0.587 * (n >> 8 & 255) + 0.114 * (n & 255)) / 255; };
+  const LIGHT = S.BRAND && lum(S.BRAND.bg) > 0.6;
+  const FILL = LIGHT ? S.BRAND.ink : '#FFFFFF', STROKE = LIGHT ? S.BRAND.bg : 'rgba(0,0,0,0.92)';
 
   function drawCaptions(ctx, t) {
     const sp = spans.find((s) => t >= s.t0 && t < s.t1);
@@ -36,8 +40,8 @@
     let x = -total / 2;
     sp.g.forEach((w, i) => {
       const active = t >= w.t0 && (i === sp.g.length - 1 || t < sp.g[i + 1].t0);
-      ctx.lineWidth = 14; ctx.strokeStyle = 'rgba(0,0,0,0.92)'; ctx.strokeText(w.w, x, 0);
-      ctx.fillStyle = active ? GOLD : '#FFFFFF'; ctx.fillText(w.w, x, 0);
+      ctx.lineWidth = LIGHT ? 16 : 14; ctx.strokeStyle = STROKE; ctx.strokeText(w.w, x, 0);
+      ctx.fillStyle = active ? GOLD : FILL; ctx.fillText(w.w, x, 0);
       x += widths[i] + space;
     });
     ctx.restore();

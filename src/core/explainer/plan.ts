@@ -50,6 +50,7 @@ Escreva ${Math.max(7, Math.round(config.explainerSeconds / 4.5))}–${Math.max(9
 - Escrita para voz: frases diretas, sem ponto de exclamação, sem palavras em MAIÚSCULAS, sem emojis, sem reticências dramáticas.
 - O @ do perfil NUNCA vai escrito na narração; se quiser citar o perfil, escreva exatamente {HANDLE} (ex.: "segue o {HANDLE} pra mais regras").
 - onScreen: título grande da cena, máx. 6 palavras (pode ser um número, ex.: "60%").
+- VARIEDADE: cenas seguidas NUNCA repetem o mesmo plano. Comece o "visual" de cada cena com o PLANO entre colchetes, alternando: [geral] (o cômodo inteiro), [close] (detalhe: o pé do sofá, a moldura, a tomada), [comparação] (antes × depois lado a lado), [tela cheia] (um número ou palavra grande sozinho), [lista] (recap). Use pelo menos 3 planos diferentes no vídeo.
 - visual: descreva o desenho e o movimento de forma concreta e desenhável com formas simples (ex.: "sala em vista frontal; o tapete cresce até os pés do sofá ficarem em cima; seta mostra 'pés da frente'"). Prefira mostrar a regra acontecendo (antes → depois) a escrever texto.
 - Última cena: recapitulação visual + UMA chamada (cta), escolhida pelo que o tema pede — não use sempre a mesma:
   · "salvar": regra/medida/lista de referência que a pessoa vai querer consultar depois ("salva pra usar na próxima compra").

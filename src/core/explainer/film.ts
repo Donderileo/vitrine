@@ -148,13 +148,26 @@ function midBrightness(png: string): number | null {
   return m ? Number(m[1]) : null;
 }
 
+/** Colour histogram (64 bins) of a still's middle zone — position-independent, so it tells "same illustration again". */
+function midHist(png: string): Float64Array | null {
+  if (!fs.existsSync(png)) return null;
+  const r = spawnSync(config.ffmpeg, ["-v", "error", "-i", png, "-vf", "crop=iw*0.85:ih*0.4:iw*0.05:ih*0.29,scale=64:64", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], { maxBuffer: 1 << 20 });
+  const raw = r.stdout as Buffer;
+  if (!raw || !raw.length) return null;
+  const h = new Float64Array(64), n = raw.length / 3;
+  for (let i = 0; i < raw.length; i += 3) h[(raw[i] >> 6) * 16 + (raw[i + 1] >> 6) * 4 + (raw[i + 2] >> 6)] += 1 / n;
+  return h;
+}
+const histSim = (a: Float64Array, b: Float64Array) => a.reduce((s, v, i) => s + Math.min(v, b[i]), 0);
+
 /** Cheap automatic review: render one still per scene (catches crashes) + the engine's visual QA (layout/contrast). */
 export async function review(dir: string, narr: Narr, log: (m: string) => void = () => {}) {
   const issues: string[] = [];
   log(`checando a animação: 1 quadro de cada cena (${narr.scenes.length})…`);
   const times = narr.scenes.map((s) => ((s.t0 + s.t1) / 2).toFixed(2));
   // + one still right after each scene starts: the middle of the screen must never sit empty waiting for a word
-  const early = narr.scenes.map((s, i) => (i > 0 && s.t1 - s.t0 > 1 ? (s.t0 + 0.35).toFixed(2) : null));
+  // (not the last scene: the end card is dark by design)
+  const early = narr.scenes.map((s, i) => (i > 0 && i < narr.scenes.length - 1 && s.t1 - s.t0 > 1 ? (s.t0 + 0.35).toFixed(2) : null));
   const st = await engine(dir, ["engine/render.js", "stills", ...times, ...early.filter(Boolean) as string[], "--draft"], 5 * 60_000);
   for (const l of st.out.split("\n")) if (/EXCEPTION|Error|warning: frames must/.test(l)) issues.push(l.trim().slice(0, 400));
   if (st.code !== 0 && !issues.length) issues.push(st.out.slice(-600));
@@ -167,10 +180,21 @@ export async function review(dir: string, narr: Narr, log: (m: string) => void =
   });
   if (!issues.length) {
     log("checando layout (texto fora da tela, sobreposição, contraste)…");
-    const qa = await engine(dir, ["engine/render.js", "qa", ...times], 5 * 60_000);
-    for (const l of qa.out.split("\n")) if (/^⚠/.test(l.trim()) && !/mid-transition/.test(l)) issues.push(l.trim());
+    // layout QA at 25%, 50% and 75% of every scene: things that appear and leave mid-scene get checked too
+    const qaTimes = narr.scenes.flatMap((s) => [0.25, 0.5, 0.75].map((f) => (s.t0 + (s.t1 - s.t0) * f).toFixed(2)));
+    const qa = await engine(dir, ["engine/render.js", "qa", ...qaTimes], 5 * 60_000);
+    // sparse sampling → every finding is "1 frame"; only low contrast during a transition is ignored, off-screen/overlap never
+    for (const l of qa.out.split("\n")) if (/^⚠/.test(l.trim()) && !(/CONTRAST/.test(l) && /mid-transition/.test(l))) issues.push(l.trim());
   }
   issues.push(...empty);
+  // consecutive scenes that look the same (same illustration, same framing) = "a static image with things piling up"
+  if (!issues.some((x) => /EXCEPTION|Error/.test(x))) {
+    const hs = times.map((t) => midHist(path.join(dir, "out/stills", `t_${String(Number(t).toFixed(2)).padStart(6, "0")}.png`)));
+    for (let i = 1; i < hs.length; i++) {
+      const a = hs[i - 1], b = hs[i];
+      if (a && b && histSim(a, b) > 0.93) issues.push(`cena ${i}: está quase igual à cena ${i - 1} (mesma ilustração no mesmo enquadramento — parece imagem parada). Troque o plano: close num detalhe com H.M.focus, comparação, número em tela cheia ou outra ilustração.`);
+    }
+  }
   return { issues, stills: times.map((t) => path.join(dir, "out/stills", `t_${String(Number(t).toFixed(2)).padStart(6, "0")}.png`)) };
 }
 

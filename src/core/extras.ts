@@ -4,6 +4,7 @@ import { pathToFileURL } from "node:url";
 import { chromium } from "playwright";
 import { z } from "zod";
 import { config } from "./config";
+import { loadSettings } from "./settings";
 import { ffmpeg } from "./ffmpeg";
 import { claudeCost } from "./pricing";
 import type { Ctx } from "./types";
@@ -64,16 +65,19 @@ export async function renderCover(opts: { video: string; at: number; title: stri
   const words = opts.title.trim().split(/\s+/);
   const longest = Math.max(...words.map((w) => w.length));
   const size = Math.max(84, Math.min(150, Math.floor(1500 / Math.max(longest, 6)), words.length > 4 ? 118 : 150));
+  const C = loadSettings().brandColors;
+  const rgb = (h: string) => { const n = parseInt(h.slice(1), 16); return `${n >> 16 & 255},${n >> 8 & 255},${n & 255}`; };
+  const bgc = rgb(C.bg), light = (0.299 * parseInt(C.bg.slice(1, 3), 16) + 0.587 * parseInt(C.bg.slice(3, 5), 16) + 0.114 * parseInt(C.bg.slice(5, 7), 16)) / 255 > 0.6;
   const html = `<!doctype html><html><head><meta charset="utf-8"><style>
 @font-face{font-family:P;src:url('${font("Poppins-Bold.ttf")}')}@font-face{font-family:PM;src:url('${font("Poppins-Medium.ttf")}')}
-html,body{margin:0;width:1080px;height:1920px;overflow:hidden;background:#120d09}
+html,body{margin:0;width:1080px;height:1920px;overflow:hidden;background:${C.bg}}
 .bg{position:absolute;inset:0;background:url('${pathToFileURL(frame).href}') center/cover;filter:brightness(.92) saturate(1.08)}
-.shade{position:absolute;inset:0;background:linear-gradient(180deg,#120d09 0%,#120d09 34%,rgba(18,13,9,.85) 38%,rgba(18,13,9,0) 46%,rgba(18,13,9,0) 70%,rgba(18,13,9,.9) 86%,#120d09 100%)}
+.shade{position:absolute;inset:0;background:linear-gradient(180deg,${C.bg} 0%,${C.bg} 34%,rgba(${bgc},.85) 38%,rgba(${bgc},0) 46%,rgba(${bgc},0) 70%,rgba(${bgc},.9) 86%,${C.bg} 100%)}
 .box{position:absolute;left:80px;right:80px;top:250px;height:430px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;gap:22px}
-.tag{font-family:PM;font-size:38px;color:#F2C766;letter-spacing:.06em;text-transform:uppercase}
-.t{font-family:P;font-size:${size}px;line-height:1.02;letter-spacing:-.02em;color:#fff;text-shadow:0 8px 30px rgba(0,0,0,.6)}
-.t b{background:linear-gradient(180deg,#FFF1C9,#F2C766 55%,#C8902F);-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:inherit}
-.h{position:absolute;left:0;right:0;top:1560px;text-align:center;font-family:PM;font-size:36px;color:rgba(255,255,255,.85)}
+.tag{font-family:PM;font-size:38px;color:${C.gold};letter-spacing:.06em;text-transform:uppercase}
+.t{font-family:P;font-size:${size}px;line-height:1.02;letter-spacing:-.02em;color:${light ? C.ink : "#fff"};text-shadow:${light ? "none" : "0 8px 30px rgba(0,0,0,.6)"}}
+.t b{background:linear-gradient(180deg,${C.gold},${C.gold} 55%,${C.gold});-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:inherit}
+.h{position:absolute;left:0;right:0;top:1560px;text-align:center;font-family:PM;font-size:36px;color:${light ? C.ink : "rgba(255,255,255,.85)"}}
 </style></head><body><div class="bg"></div><div class="shade"></div>
 <div class="box">${opts.tag ? `<div class="tag">${esc(opts.tag)}</div>` : ""}<div class="t">${words.map((w, i) => (i === words.length - 1 || /\?$/.test(w) ? `<b>${esc(w)}</b>` : esc(w))).join(" ")}</div></div>
 ${config.brandHandle ? `<div class="h">${esc(config.brandHandle)}</div>` : ""}</body></html>`;

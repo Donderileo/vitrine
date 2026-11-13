@@ -41,7 +41,8 @@ export async function runExplainer(ctx: Ctx, state: ProjectState, save: () => vo
   if (!ex.filmReady) {
     stage("animação");
     scaffold(filmDir, ex.plan, ex.narration, ex.narration.wav);
-    const issues = await authorFilm(ctx, filmDir, ex.plan, ex.narration);
+    const issues = await authorFilm(ctx, filmDir, ex.plan, ex.narration, { fresh: ex.freshFilm });
+    ex.freshFilm = undefined;
     if (issues.some((i) => /EXCEPTION|Error/.test(i))) throw new Error("A animação gerada tem erro de código: " + issues.join(" | ").slice(0, 400));
     if (issues.length) ctx.log(`Seguindo com ${issues.length} aviso(s) de layout: ${issues.join(" | ").slice(0, 300)}`);
     ex.filmDir = filmDir; ex.filmReady = true; ex.qaLog = issues; ex.video = undefined; ex.output = undefined;

@@ -7,8 +7,12 @@
   if (!U || !G || !S) return;
   const { clamp, lerp, ease } = U;
   const Z = S.ZONES, B = S.BRAND, F = 'Poppins';
-  const OK = '#6CC48A', BAD = '#E5604D', DARK = '#120d09';
+  const OK = '#6E9F6B', BAD = '#D2553F';
+  // theme-aware colours (dark or light themes): text on the accent, translucent surfaces, cards
+  const rgba = (hex, a) => { const n = parseInt(String(hex).slice(1), 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`; };
+  const ON = B.onAccent || '#120d09', DARK = ON, SOFT = (a) => rgba(B.ink, a), CARD = rgba(B.bg2 || B.bg, 0.92);
   const ENTER = 0.4, EXIT = 0.25, SLIDE = 130, STAGGER = 0.09;
+  const MAXW = Math.min(900, ((G.SAFE && G.SAFE.w) || 900) - 40); // widest a text block may be (inside the TikTok safe area)
 
   // ---------- timing ----------
   /** null before `at` / after it left; else {i: entrance 0..1 eased, o: exit 0..1, a: alpha, age} */
@@ -93,7 +97,7 @@
     },
 
     /** headline whose words enter one by one; `hl` = word(s) to highlight in a coloured box */
-    title(ctx, t, { text, at, out, x = Z.cx, y = Z.top.y + 200, size = 92, maxW = 900, hl = '', color = B.ink, accent = B.gold, align = 'center' }) {
+    title(ctx, t, { text, at, out, x = Z.cx, y = Z.top.y + 200, size = 92, maxW = MAXW, hl = '', color = B.ink, accent = B.gold, align = 'center' }) {
       if (t < at) return;
       const { rows, size: sz } = lines(ctx, String(text), size, maxW);
       const clean = (w) => w.toLowerCase().replace(/[^\p{L}\p{N}%]/gu, '');
@@ -120,7 +124,7 @@
     },
 
     /** one big word in a coloured box with a pop (impact phrases) */
-    keyword(ctx, t, { text, at, out, x = Z.cx, y = Z.top.y + 230, size = 130, color = B.gold, ink = DARK, box = true, from = 'pop', label, maxW = 900, tilt = -0.03 }) {
+    keyword(ctx, t, { text, at, out, x = Z.cx, y = Z.top.y + 250, size = 130, color = B.gold, ink = DARK, box = true, from = 'pop', label, maxW = MAXW, tilt = -0.03 }) {
       const L = life(t, at, out); if (!L) return;
       const s = String(text).toUpperCase(), sz = fit(ctx, s, size, maxW - 60), w = width(ctx, s, sz);
       enter(ctx, L, from, x, y - sz * 0.3, () => {
@@ -140,7 +144,7 @@
       const s = prefix + v.toFixed(decimals).replace('.', ',') + suffix;
       enter(ctx, L, 'up', x, y, () => {
         ctx.save(); ctx.translate(x, y - size * 0.35); ctx.scale(k, k); ctx.translate(-x, -(y - size * 0.35));
-        txt(ctx, s, x, y, { size: fit(ctx, s, size, 900), color, align });
+        txt(ctx, s, x, y, { size: fit(ctx, s, size, MAXW), color, align });
         ctx.restore();
         if (label) txt(ctx, String(label).toUpperCase(), x, y + size * 0.42, { size: 44, weight: 500, color: B.ink, align });
       });
@@ -152,7 +156,7 @@
       const p = value * ease.outCubic(clamp((t - at - 0.15) / dur));
       enter(ctx, L, 'left', x, y, () => {
         if (label) txt(ctx, String(label).toUpperCase(), x, y - 22, { size: 40, weight: 500, align: 'left' });
-        rr(ctx, x, y, w, h, h / 2, 'rgba(255,255,255,0.12)');
+        rr(ctx, x, y, w, h, h / 2, SOFT(0.14));
         if (p > 0.005) rr(ctx, x, y, Math.max(h, w * p), h, h / 2, color);
         if (showPct) txt(ctx, Math.round(p * 100) + '%', x + w, y - 22, { size: 56, color, align: 'right' });
       });
@@ -168,13 +172,35 @@
       stroke(ctx, [[x2 + nx, y2 + ny], [x2 - nx, y2 - ny]], color, lw, clamp(p * 4 - 3));
       ctx.restore();
       if (label) {
-        const mx = (x1 + x2) / 2 - Math.sin(a) * 60 * side, my = (y1 + y2) / 2 + Math.cos(a) * 60 * side + size * 0.35;
+        let mx = (x1 + x2) / 2 - Math.sin(a) * 60 * side, my = (y1 + y2) / 2 + Math.cos(a) * 60 * side + size * 0.35;
         const LL = life(t, at + dur * 0.7, out), w = width(ctx, label, size);
+        const SA = G.SAFE || { x: 40, w: G.W - 180 };
+        const cmx = clamp(mx, SA.x + w / 2 + 30, SA.x + SA.w - w / 2 - 30); // never off-screen
+        if (cmx !== mx) { mx = cmx; }
         enter(ctx, LL, 'pop', mx, my - size * 0.35, () => {
-          rr(ctx, mx - w / 2 - 20, my - size * 0.95, w + 40, size * 1.3, 14, DARK, color, 4);
+          rr(ctx, mx - w / 2 - 20, my - size * 0.95, w + 40, size * 1.3, 14, CARD, color, 4);
           txt(ctx, label, mx, my, { size, color, align: 'center' });
         });
       }
+    },
+
+    /** a row of pills, centred on x (values, recap, tags); items: [{text, at}] — wraps to 2 rows if needed */
+    badges(ctx, t, { items, out, x = Z.cx, y = Z.top.y + 300, size = 40, gap = 18, color = B.gold, ink = ON }) {
+      const ws = items.map((it) => width(ctx, it.text, size) + size * 1.2), maxW = Math.min(Z.mid.w, MAXW);
+      const rows = [[]]; let w = 0;
+      items.forEach((it, k) => { if (w + ws[k] > maxW && rows[rows.length - 1].length) { rows.push([]); w = 0; } rows[rows.length - 1].push(k); w += ws[k] + gap; });
+      rows.forEach((row, r) => {
+        const tot = row.reduce((a, k) => a + ws[k], 0) + gap * (row.length - 1);
+        let cx = clamp(x - tot / 2, Z.mid.x, Z.mid.x + Z.mid.w - tot);
+        row.forEach((k) => {
+          const L = life(t, items[k].at, out), bx = cx, yy = y + r * size * 1.9;
+          enter(ctx, L, 'pop', bx + ws[k] / 2, yy, () => {
+            rr(ctx, bx, yy - size * 0.95, ws[k], size * 1.4, size * 0.7, color);
+            txt(ctx, items[k].text, bx + ws[k] / 2, yy, { size, color: ink, align: 'center' });
+          });
+          cx += ws[k] + gap;
+        });
+      });
     },
 
     /** list where each item slides in at its own time and gets a ✓ drawn (items: [{text, at}]) */
@@ -183,7 +209,7 @@
         const L = life(t, it.at, out); if (!L) return;
         const yy = y + k * gap;
         enter(ctx, L, 'left', x, yy, () => {
-          rr(ctx, x, yy - 52, 72, 72, 16, 'rgba(255,255,255,0.08)', bad ? BAD : color, 4);
+          rr(ctx, x, yy - 52, 72, 72, 16, SOFT(0.08), bad ? BAD : color, 4);
           (bad ? cross : check)(ctx, x + 36, yy - 16, 44, draw(t, it.at + 0.2, 0.3), bad ? BAD : color);
           txt(ctx, it.text, x + 100, yy, { size: fit(ctx, it.text, size, 700), align: 'left' });
         });
@@ -199,7 +225,7 @@
         const L = life(t, at + k * 0.25, out); if (!L) return;
         const x = xs[k], ok = side.ok ?? k === 1;
         enter(ctx, L, k ? 'right' : 'left', x + w / 2, y + h / 2, () => {
-          rr(ctx, x, y, w, h, 28, 'rgba(255,255,255,0.06)', ok ? OK : BAD, 5);
+          rr(ctx, x, y, w, h, 28, B.bg2 || B.bg, ok ? OK : BAD, 5);
           if (side.draw) { ctx.save(); ctx.beginPath(); ctx.roundRect(x + 6, y + 6, w - 12, h - 110, 24); ctx.clip(); side.draw(ctx, { x: x + 6, y: y + 6, w: w - 12, h: h - 110 }, t); ctx.restore(); }
           if (side.label) txt(ctx, String(side.label).toUpperCase(), x + w / 2, y + h - 34, { size: fit(ctx, String(side.label).toUpperCase(), 50, w - 40), color: ok ? OK : BAD, align: 'center' });
           const m0 = (markAt ?? at + 0.5) + k * 0.35;
@@ -217,7 +243,7 @@
       const L = life(t, at, out); if (!L) return;
       const s = String(text), sz = fit(ctx, s, size, 800), w = width(ctx, s, sz);
       enter(ctx, L, 'pop', x, y - sz * 0.3, () => {
-        rr(ctx, x - w / 2 - 40, y - sz * 0.95, w + 80, sz * 1.3, sz * 0.65, 'rgba(255,255,255,0.1)', B.ink, 4);
+        rr(ctx, x - w / 2 - 40, y - sz * 0.95, w + 80, sz * 1.3, sz * 0.65, SOFT(0.1), B.ink, 4);
         txt(ctx, s, x, y, { size: sz, align: 'center' });
         stroke(ctx, [[x - w / 2 - 50, y - sz * 0.15], [x + w / 2 + 50, y - sz * 0.45]], color, 14, draw(t, strikeAt ?? at + 0.45, 0.25));
       });
@@ -277,7 +303,7 @@
       const p = value * ease.outCubic(clamp((t - at - 0.1) / dur));
       enter(ctx, L, 'pop', x, y, () => {
         ctx.save(); ctx.lineCap = 'round'; ctx.lineWidth = lw;
-        ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
+        ctx.strokeStyle = SOFT(0.14); ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
         if (p > 0.002) { ctx.strokeStyle = color; ctx.beginPath(); ctx.arc(x, y, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * p); ctx.stroke(); }
         ctx.restore();
         if (text) txt(ctx, text, x, y + size * 0.35, { size: fit(ctx, text, size, r * 1.6), align: 'center' });
@@ -294,15 +320,29 @@
         s += t >= stop ? fin[k] : String(Math.floor(U.hash(k, Math.floor(t * 24)) * 10));
       }
       s = prefix + s;
-      enter(ctx, L, 'up', x, y, () => txt(ctx, s, x, y, { size: fit(ctx, s, size, 900), color, align: 'center' }));
+      enter(ctx, L, 'up', x, y, () => txt(ctx, s, x, y, { size: fit(ctx, s, size, MAXW), color, align: 'center' }));
       if (stamp) M.keyword(ctx, t, { text: stamp, at: at + dur + 0.05, out, x: x + 200, y: y + 120, size: 70, color: BAD, ink: '#fff', tilt: -0.12 });
+    },
+
+    /** close-up: draws `draw(ctx)` zoomed k× around (x, y), easing in at `at` (and back out at `out`), clipped to the
+     *  middle zone. Use it so consecutive scenes never show the same framing ("close no quadro", "close no pé do sofá"). */
+    focus(ctx, t, { x, y, k = 1.9, at, dur = 0.6, out, clip = true }, draw) {
+      k = Math.max(1.7, k); // a close-up has to read as a different shot, not a slightly bigger copy
+      const pin = at == null ? 1 : ease.inOutCubic(clamp((t - at) / dur)), pout = out != null ? ease.inOutCubic(clamp((t - out) / dur)) : 0;
+      const z = 1 + (k - 1) * pin * (1 - pout);
+      const cx = lerp(x, Z.cx, pin * (1 - pout)), cy = lerp(y, Z.mid.y + Z.mid.h / 2, pin * (1 - pout));
+      ctx.save();
+      if (clip) { ctx.beginPath(); ctx.roundRect(Z.mid.x, Z.mid.y - 20, Z.mid.w, Z.mid.h + 20, 28); ctx.clip(); }
+      ctx.translate(cx, cy); ctx.scale(z, z); ctx.translate(-x, -y);
+      draw(ctx);
+      ctx.restore();
     },
 
     /** dark card (90% opaque) with a thin brand border; content(ctx, box, L) draws inside */
     card(ctx, t, { at, out, x = Z.cx - 450, y = Z.mid.y + 40, w = 900, h = 600, from = 'up', label, border = B.gold }, content) {
       const L = life(t, at, out); if (!L) return;
       enter(ctx, L, from, x + w / 2, y + h / 2, () => {
-        rr(ctx, x, y, w, h, 26, 'rgba(18,13,9,0.9)', border, 3);
+        rr(ctx, x, y, w, h, 26, CARD, border, 3);
         if (label) { ctx.fillStyle = border; ctx.fillRect(x + 32, y + 36, 16, 16); txt(ctx, String(label).toUpperCase(), x + 62, y + 53, { size: 28, weight: 500, color: border, align: 'left' }); }
         if (content) content(ctx, { x, y, w, h }, L);
       });
@@ -359,6 +399,7 @@
       const DEF = { salvar: 'SALVA PRA USAR DEPOIS', comentar: 'COMENTA AQUI EMBAIXO', compartilhar: 'MANDA PRA QUEM PRECISA VER', seguir: 'SEGUE PRA PARTE 2' };
       text = text || DEF[kind] || DEF.salvar;
       const p = ease.outCubic(clamp((t - at) / 0.5)), Y = (f) => Z.mid.y + Z.mid.h * f;
+      ctx.save(); ctx.globalAlpha = clamp((t - at) / 0.25); ctx.fillStyle = B.bg; ctx.fillRect(0, 0, G.W, G.H); ctx.restore(); // its own clean screen
       ctx.save(); ctx.fillStyle = B.gold; ctx.globalAlpha = 0.9;
       ctx.fillRect(0, Y(0.04), G.W * p, 16); ctx.fillRect(G.W * (1 - p), Y(0.92), G.W, 16); ctx.restore();
       M.ctaIcon(ctx, t, { kind, y: Y(0.2), at: at + 0.05 });

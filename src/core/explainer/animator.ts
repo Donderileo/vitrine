@@ -19,19 +19,15 @@ import type { TExplainerPlan } from "./schema";
 const ASSETS = path.join(process.cwd(), "assets/explainer");
 const read = (f: string) => fs.readFileSync(path.join(ASSETS, f), "utf8");
 
-const RULES = `REGRAS (Vitrine):
-- Canvas 1080x1920 (9:16), estilo flat. O shell já pinta o fundo da marca (brilho + grade em movimento), o nome da série no topo e um flash curto na troca de cena — NÃO repita isso.
-- LAYOUT: títulos/números/palavras-chave em H.Z.top; a ilustração em H.Z.mid, GRANDE; NADA em H.Z.caption (y ≥ 1330): ali entram as legendas. Centralize em H.Z.cx (o TikTok cobre a borda direita). Cards até 900 px de largura. Texto ≥ 34 px.
-- ROTEIRO DE MOTION: cada cena traz "beats" (palavra → componente → texto). Implemente CADA beat com o componente H.M correspondente, entrando exatamente em H.cue(i, 'palavra'). "desenho" = o movimento acontece na sua ilustração (crescer, mover, pintar) nessa palavra. Pode acrescentar 1 detalhe se a cena ficar parada, nunca tirar beats.
-- USE H.M PARA TODO TEXTO E GRÁFICO ANIMADO (título, palavra-chave, número, régua, lista, comparação, seta, círculo…): eles já têm a entrada/saída certas. Desenhe à mão só a ilustração do tema (cômodo, móveis, objetos) no KIT, e para animá-la use H.M.enter / H.M.life / H.M.draw.
-- TIMING: entra na palavra que ilustra (0–0,15 s antes); itens de um grupo com ~0,09 s entre si; no máximo 2 elementos principais ao mesmo tempo (ex.: palavra-chave no topo + ilustração no meio); quando um novo elemento ocupa o mesmo lugar, dê "out" ao anterior.
-- NUNCA TELA VAZIA ESPERANDO A PALAVRA: em s.t0 (+0,1 s) a zona do meio já tem a ilustração ou o componente principal entrando; as palavras da narração disparam os DETALHES (marcas, números, setas, destaques). A checagem automática reprova cena com o meio vazio no começo.
-- MOVIMENTO CONSTANTE: nada parado por mais de ~1 s; enquanto espera algo respira (H.M.breathe, balanço leve). Alterne lados e tipos de componente entre cenas.
-- PRIMEIRO QUADRO (cena 0): em t = 0 a tela já está CHEIA: título do gancho com H.M.title({at: 0}) e ilustração grande e colorida já visível. Nada de tela vazia.
-- ÚLTIMA CENA: H.M.cta({kind, text}) com a CHAMADA do roteiro (kind: salvar | comentar | compartilhar | seguir; já mostra o ícone e o @) + a ilustração final pequena.
-- TEMPO: t é absoluto; a cena vai de s.t0 a s.t1. Função pura de t: nada de Math.random/Date.now (use H.U.hash), sem estado entre quadros, sem imagens externas.
-- Cores: marca (H.B.gold, H.B.ink), tema (H.PAL) e objetos fixos (H.C['nome']). Uma cor de destaque por cena.
-- Código ENXUTO: sem comentários longos, sem listas enormes de coordenadas, sem repetir o que está no kit.`;
+const RULES = `REGRAS (Vitrine) — as 3 primeiras são as que mais quebram vídeos:
+1. TUDO CENTRALIZADO E DENTRO DA TELA: posicione com coordenadas ABSOLUTAS a partir de H.Z.cx e das zonas (H.Z.top para títulos/números, H.Z.mid para a ilustração; NADA em y ≥ 1330, é das legendas). Nunca some translate com coordenadas que já são absolutas. Para grupos de etiquetas use H.M.badges (já centraliza). Largura máx. 900 px; texto ≥ 34 px.
+2. UM PLANO DIFERENTE POR CENA: nunca a mesma ilustração no mesmo enquadramento em cenas seguidas. Alterne geral → close (H.M.focus) → comparação → número em tela cheia, seguindo o [plano] do "visual". Compare, cta e números em tela cheia SUBSTITUEM a ilustração.
+3. USE OS COMPONENTES H.M para todo texto e gráfico animado, entrando na palavra do beat (H.cue(i, 'palavra')). Desenhe à mão só a ilustração (no KIT). Cada beat do roteiro vira o componente indicado; "desenho" = a ilustração se mexe nessa palavra.
+- Em s.t0 a cena já tem algo grande entrando; as palavras disparam os detalhes. Nada parado por mais de ~1 s (H.M.breathe). Máx. 2 elementos principais ao mesmo tempo; quando algo novo ocupa o lugar, dê "out" ao anterior.
+- Cena 0: tela CHEIA em t = 0 (H.M.title com at: 0 + ilustração grande). Última cena: recap curto com "out" e depois H.M.cta({kind, text}) na palavra da chamada (cobre a tela sozinha).
+- O shell já pinta fundo, nome da série, zoom de câmera e flash de corte. t é absoluto (cena de s.t0 a s.t1); função pura de t (H.U.hash no lugar de Math.random).
+- Cores: H.B.gold = destaque, H.B.ink = texto, H.B.onAccent = texto sobre o destaque, H.C['objeto'] = cores fixas, H.PAL = tema. Fundo pode ser claro (H.light): ilustração sempre num quadro com sombra.
+- Código enxuto.`;
 
 const SYSTEM = () => [{
   type: "text", cache_control: { type: "ephemeral" },
@@ -76,7 +72,10 @@ export function assemble(kit: string, scenes: string[]) {
   const U = globalThis.U, G = globalThis.G, S = globalThis.SCORE, Studio = globalThis.Studio, Data = globalThis.Data;
   const { clamp, lerp, ease } = U;
   const Z = S.ZONES, B = S.BRAND, F = 'Poppins';
+  const lum = (h) => { const n = parseInt(String(h).slice(1), 16); return (0.299 * (n >> 16 & 255) + 0.587 * (n >> 8 & 255) + 0.114 * (n & 255)) / 255; };
+  const LIGHT = lum(B.bg) > 0.6;
   const H = {
+    light: LIGHT,
     U, G, Data, W: G.W, H: G.H, clamp, lerp, ease, Z, B, PAL: S.PALETTE, C: S.OBJECTS || {}, M: globalThis.M, F, cue: S.cue, handle: S.HANDLE || '',
     R: (ctx, x, y, w, h, r, fill) => G.rrect(ctx, x, y, w, h, r, { fill, lw: 0 }),
     E: (ctx, cx, cy, rx, ry, fill) => G.ellipse(ctx, cx, cy, rx, ry, { fill, lw: 0 }),
@@ -95,6 +94,9 @@ export function assemble(kit: string, scenes: string[]) {
       ctx.restore();
     },
   };
+  // the most used helpers are also plain variables here, so a scene that forgets "const { R } = H" still runs
+  const { R, E, txt, prog, stamp, arrow } = H;
+  const M = H.M, C = H.C, PAL = H.PAL, cue = H.cue;
   let K = {};
   try { K = (${kit})(H) || {}; } catch (e) { throw new Error('kit: ' + (e && e.message)); }
   const SC = [
@@ -117,11 +119,11 @@ ${scenes.map((c, i) => `    /* cena ${i} */ (${c}),`).join("\n")}
       const i = sceneAt(t), s = S.SCENES[i];
       // gentle camera: slow push-in over the scene + a short settle when it starts (keeps every shot alive)
       const p = clamp((t - s.t0) / Math.max(0.5, s.t1 - s.t0)), enter = i === 0 ? 0 : 1 - ease.outCubic(clamp((t - s.t0) / 0.35));
-      const k = 1 + 0.035 * ease.inOutQuad(p), cy = Z.mid.y + Z.mid.h / 2;
+      const k = (i % 2 ? 1.04 : 1) * (1 + 0.02 * ease.inOutQuad(p)), cy = Z.mid.y + 90; // zoom alternado a cada corte; anchored high so the top texts barely move and the bottom stays clear of the captions
       try { ctx.save(); ctx.translate(Z.cx, cy + 36 * enter); ctx.scale(k, k); ctx.translate(-Z.cx, -cy); SC[i](ctx, t, s, H, K); ctx.restore(); }
       catch (e) { throw new Error('cena ' + i + ': ' + (e && e.message)); }
       const tag = [S.series ? S.series.toUpperCase() : '', H.handle].filter(Boolean).join('  ·  ');
-      if (tag) H.txt(ctx, tag, Z.top.x, Z.top.y + 30, { size: 30, color: B.gold, weight: 500 });
+      if (tag) H.txt(ctx, tag, Z.top.x, Z.top.y + 30, { size: 30, color: LIGHT ? G.tint(B.gold, -0.3) : B.gold, weight: 500 });
       const fl = i > 0 ? 0.28 * Math.exp(-(t - s.t0) * 12) : 0;
       if (fl > 0.01) { ctx.fillStyle = 'rgba(255,248,232,' + fl + ')'; ctx.fillRect(0, 0, G.W, G.H); }
     },
@@ -145,7 +147,7 @@ function scenesOf(issue: string, narr: Narr): number[] {
   return [];
 }
 
-export async function authorFilm(ctx: Ctx, dir: string, plan: TExplainerPlan, narr: Narr): Promise<string[]> {
+export async function authorFilm(ctx: Ctx, dir: string, plan: TExplainerPlan, narr: Narr, opts: { fresh?: boolean } = {}): Promise<string[]> {
   if (process.env.EXPLAINER_FILM) { // hand-written full film (tests / manual tweaks)
     fs.copyFileSync(process.env.EXPLAINER_FILM, path.join(dir, "film.js"));
     writeSfx(dir, process.env.EXPLAINER_SFX ? JSON.parse(fs.readFileSync(process.env.EXPLAINER_SFX, "utf8")) : [], narr);
@@ -208,6 +210,20 @@ export async function authorFilm(ctx: Ctx, dir: string, plan: TExplainerPlan, na
     const q = [...ids];
     await Promise.all(Array.from({ length: Math.min(n, q.length) }, async () => { while (q.length) await fn(q.shift()!); }));
   }
+  // ---------- resume: the animation was already written (only the check failed) → no new Claude call ----------
+  const partsFile = path.join(dir, "parts.json");
+  let resumed = false;
+  if (!opts.fresh && fs.existsSync(partsFile)) {
+    try {
+      const p = JSON.parse(fs.readFileSync(partsFile, "utf8"));
+      if (p.kit && Array.isArray(p.scenes) && p.scenes.length === scenes.length) {
+        kit = p.kit; p.scenes.forEach((c: string, i: number) => (scenes[i] = c)); Object.assign(sfx, p.sfx || {});
+        resumed = true;
+        ctx.log("retomando a animação já escrita (sem nova chamada ao Claude)…");
+      }
+    } catch { /* write a new one */ }
+  }
+  if (!resumed) {
   // ---------- ONE call writes kit + every scene (cheap: the big context is sent once) ----------
   ctx.log(`Claude animando o vídeo inteiro (kit + ${plan.scenes.length} cenas) numa chamada…`);
   const full = await ask("filme", `${head}
@@ -234,6 +250,7 @@ Cena 0 é o gancho (prender nos 2 primeiros segundos); a última é recap + a CH
   // only scenes that did not come back usable get their own (small) call
   const missing = scenes.map((c, i) => (/\{\s*\}$/.test(c) ? i : -1)).filter((i) => i >= 0);
   if (missing.length) { ctx.log(`cena(s) ${missing.join(", ")} faltando — pedindo separadamente`); await pool(missing, (i) => writeScene(i)); }
+  } // end of "not resumed"
 
   // every motion beat gets its sound (the manual: each entrance has a discreet SFX); Claude's extra cues are kept
   plan.scenes.forEach((sc, i) => {
@@ -248,14 +265,16 @@ Cena 0 é o gancho (prender nos 2 primeiros segundos); a última é recap + a CH
   // ---------- assemble + review, fix only broken scenes ----------
   let issues: string[] = [];
   let layoutFixed = false;
-  for (let round = 0; round < 3; round++) {
+  const MAX_ROUNDS = 4;
+  for (let round = 0; round < MAX_ROUNDS; round++) {
     fs.writeFileSync(path.join(dir, "film.js"), assemble(kit, scenes));
+    fs.writeFileSync(partsFile, JSON.stringify({ kit, scenes, sfx }));
     writeSfx(dir, Object.entries(sfx).flatMap(([i, list]) => (list || []).map((x: any) => ({ ...x, scene: Number(i) }))), narr);
     issues = (await review(dir, narr, ctx.log)).issues;
     if (!issues.length) { ctx.log("animação passou na checagem ✔"); return []; }
     ctx.log(`checagem: ${issues.length} problema(s): ${issues.join(" | ").slice(0, 300)}`);
-    if (round === 2) break;
-    const crash = issues.some((x) => /EXCEPTION|Error|cena \d+:|kit:/.test(x));
+    if (round === MAX_ROUNDS - 1) break;
+    const crash = issues.some((x) => /EXCEPTION|Error/.test(x)); // code errors; the rest are layout/variety warnings
     if (!crash && layoutFixed) break; // layout warnings get one paid fix round, not more
     if (!crash) layoutFixed = true;
     const byScene = new Map<number, string[]>();

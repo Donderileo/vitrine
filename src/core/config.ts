@@ -33,6 +33,8 @@ export const config = {
   falKey: env("FAL_KEY"),
   falImageModel: env("FAL_IMAGE_MODEL", "fal-ai/nano-banana-2/edit"),
   falImageUsd: Number(env("FAL_IMAGE_USD", "0.08")),
+  falRembgModel: env("FAL_REMBG_MODEL", "fal-ai/birefnet/v2"), // carrossel: remove o fundo da foto do produto
+  falRembgUsd: Number(env("FAL_REMBG_USD", "0.005")),
   falVideoModel: env("FAL_VIDEO_MODEL", "bytedance/seedance-2.5/image-to-video"),
   falVideoResolution: env("FAL_VIDEO_RESOLUTION", "480p"),
   falVideoUsdPerSec: Number(env("FAL_VIDEO_USD_PER_SEC", "0.2205")),

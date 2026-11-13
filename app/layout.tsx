@@ -11,7 +11,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <header className="top">
             <h1><Link href="/" style={{ textDecoration: "none" }}>Vitrine</Link></h1>
             <span>anúncios e explicativos prontos pro TikTok</span>
-            <Link href="/settings" style={{ marginLeft: "auto", fontSize: 14, fontWeight: 600, textDecoration: "none" }}>⚙ Configurações</Link>
+            <Link href="/carousel" style={{ marginLeft: "auto", fontSize: 14, fontWeight: 600, textDecoration: "none" }}>▦ Carrossel</Link>
+            <Link href="/settings" style={{ fontSize: 14, fontWeight: 600, textDecoration: "none" }}>⚙ Configurações</Link>
           </header>
           {children}
         </div>

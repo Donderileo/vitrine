@@ -10,7 +10,8 @@ import { config } from "./config";
 export type Settings = {
   brandHandle: string;
   brandHandleSpoken: string;
-  brandColors: { bg: string; bg2: string; gold: string; ink: string; muted: string };
+  /** gold = the ACCENT colour (name kept for old projects); onAccent = text drawn on top of the accent */
+  brandColors: { bg: string; bg2: string; gold: string; ink: string; muted: string; onAccent: string };
   explainerSeconds: number;
   elevenVoice: string;
   elevenSpeed: number;
@@ -31,13 +32,20 @@ export type Settings = {
   scriptNotes: string;
 };
 
+/** Ready-made colour themes (the first one is the default). */
+export const THEMES: { id: string; name: string; colors: Settings["brandColors"] }[] = [
+  { id: "terracota-noite", name: "Terracota aconchegante (escuro)", colors: { bg: "#1E1712", bg2: "#2B2019", gold: "#D2714A", ink: "#F4EBDD", muted: "#BBA896", onAccent: "#FFF6EC" } },
+  { id: "linho-terracota", name: "Linho & terracota (claro)", colors: { bg: "#F2E9DC", bg2: "#E6D8C4", gold: "#B4532E", ink: "#3A2A20", muted: "#7D6A5B", onAccent: "#FFF6EC" } },
+  { id: "noite-dourada", name: "Noite dourada (o antigo)", colors: { bg: "#120d09", bg2: "#1c140d", gold: "#F2C766", ink: "#F6EEE2", muted: "#B8A890", onAccent: "#120d09" } },
+];
+
 const FILE = () => path.join(config.dataDir, "settings.json");
 
 export function defaults(): Settings {
   return {
     brandHandle: process.env.BRAND_HANDLE ?? "@vitrine.decasa",
     brandHandleSpoken: process.env.BRAND_HANDLE_SPOKEN ?? "Vitrine ponto de casa",
-    brandColors: { bg: "#120d09", bg2: "#1c140d", gold: "#F2C766", ink: "#F6EEE2", muted: "#B8A890" },
+    brandColors: { ...THEMES[0].colors },
     explainerSeconds: Number(process.env.EXPLAINER_SECONDS || 28),
     elevenVoice: process.env.ELEVENLABS_VOICE_ID || "",
     elevenSpeed: Number(process.env.ELEVENLABS_SPEED || 1),
@@ -72,7 +80,7 @@ export function clean(raw: any): Settings {
   return {
     brandHandle: str(r.brandHandle, d.brandHandle, 60).trim(),
     brandHandleSpoken: str(r.brandHandleSpoken, d.brandHandleSpoken, 80).trim(),
-    brandColors: { bg: hex(bc.bg, d.brandColors.bg), bg2: hex(bc.bg2, d.brandColors.bg2), gold: hex(bc.gold, d.brandColors.gold), ink: hex(bc.ink, d.brandColors.ink), muted: hex(bc.muted, d.brandColors.muted) },
+    brandColors: { bg: hex(bc.bg, d.brandColors.bg), bg2: hex(bc.bg2, d.brandColors.bg2), gold: hex(bc.gold, d.brandColors.gold), ink: hex(bc.ink, d.brandColors.ink), muted: hex(bc.muted, d.brandColors.muted), onAccent: hex(bc.onAccent, bc.gold ? "#120d09" : d.brandColors.onAccent) },
     explainerSeconds: Math.round(num(r.explainerSeconds, 15, 90, d.explainerSeconds)),
     elevenVoice: str(r.elevenVoice, d.elevenVoice, 64).trim(),
     elevenSpeed: num(r.elevenSpeed, 0.7, 1.2, d.elevenSpeed),

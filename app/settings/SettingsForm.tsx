@@ -7,10 +7,11 @@ type Keys = Record<string, boolean | string>;
 export default function SettingsForm() {
   const [s, setS] = useState<Settings | null>(null);
   const [keys, setKeys] = useState<Keys>({});
+  const [themes, setThemes] = useState<{ id: string; name: string; colors: Settings["brandColors"] }[]>([]);
   const [status, setStatus] = useState("");
 
   useEffect(() => {
-    fetch("/api/settings").then((r) => r.json()).then((d) => { setS(d.settings); setKeys(d.keys); });
+    fetch("/api/settings").then((r) => r.json()).then((d) => { setS(d.settings); setKeys(d.keys); setThemes(d.themes ?? []); });
   }, []);
   if (!s) return <div className="card muted">Carregando…</div>;
 
@@ -52,7 +53,23 @@ export default function SettingsForm() {
           <input type="text" value={s.brandHandle} onChange={(e) => set("brandHandle", e.target.value)} />
           <label>Como a voz fala o @ (vazio = nunca fala)</label>
           <input type="text" value={s.brandHandleSpoken} onChange={(e) => set("brandHandleSpoken", e.target.value)} />
-          <div className="row">{color("bg", "Fundo")}{color("gold", "Destaque")}</div>
+          <label>Tema de cores</label>
+          <div className="actions">
+            {themes.map((th) => {
+              const on = JSON.stringify(th.colors) === JSON.stringify(s.brandColors);
+              return (
+                <button key={th.id} type="button" onClick={() => set("brandColors", { ...th.colors })} title={th.name}
+                  style={{ borderColor: on ? "var(--accent)" : undefined, gap: 8 }}>
+                  <span style={{ display: "inline-flex", borderRadius: 6, overflow: "hidden", border: "1px solid var(--line)" }}>
+                    {[th.colors.bg, th.colors.gold, th.colors.ink].map((c, k) => <span key={k} style={{ width: 16, height: 22, background: c }} />)}
+                  </span>
+                  <span style={{ fontWeight: on ? 700 : 500, fontSize: 13 }}>{th.name}</span>
+                </button>
+              );
+            })}
+          </div>
+          <div className="row">{color("bg", "Fundo")}{color("bg2", "Fundo 2 (cards)")}</div>
+          <div className="row">{color("gold", "Destaque")}{color("onAccent", "Texto sobre o destaque")}</div>
           <div className="row">{color("ink", "Texto")}{color("muted", "Texto suave")}</div>
         </div>
 
